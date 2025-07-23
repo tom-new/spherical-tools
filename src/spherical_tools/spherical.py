@@ -233,7 +233,7 @@ def fill_great_circle(
     geo_with_r = numpy.concatenate((radii, geo), axis=1)
 
     # conversions
-    sph = geo2sph(geo_with_r)  # -> (r, theta, phi) or whatever your convention is
+    sph = geo2sph(geo_with_r)  # -> (r, theta, phi)
     c0, c1 = sph2cart(sph)  # two 3D cartesian vectors
 
     # angular separation in degrees
