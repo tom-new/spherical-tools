@@ -9,7 +9,7 @@ def cart2sph(cartesian_coord_array: ArrayLike, degrees: bool = False) -> NDArray
     Use radians for angles by default, degrees if ``degrees == True``."""
 
     # cast input sequence to numpy.ndarray with dtype numpy.float64
-    cartesian_coord_array = numpy.array(cartesian_coord_array, dtype="float64")
+    cartesian_coord_array = numpy.asarray(cartesian_coord_array, dtype=numpy.float64)
 
     # create new array to hold spherical coordinates
     spherical_coord_array = numpy.empty(cartesian_coord_array.shape)
@@ -36,7 +36,7 @@ def sph2cart(spherical_coord_array: ArrayLike, degrees=False) -> NDArray:
     Use radians for angles by default, degrees if ``degrees == True``."""
 
     # cast input sequence to numpy.ndarray with dtype numpy.float64
-    spherical_coord_array = numpy.array(spherical_coord_array, dtype="float64")
+    spherical_coord_array = numpy.asarray(spherical_coord_array, dtype=numpy.float64)
 
     # create new array to hold Cartesian coordinates
     cartesian_coord_array = numpy.empty(spherical_coord_array.shape)
@@ -67,7 +67,9 @@ def geo2sph(geographical_coord_array: ArrayLike, degrees=False) -> NDArray:
     """Take shape (N,2), (N,3), (2,), or (3,) geographical_coord_array ([radius], lon, lat) and return an array of the same shape in spherical coordinate form ([radius], azimuth, pole)."""
 
     # cast to numpy.ndarray with type ``numpy.float64`` since this function is likely to be passed integer degrees of lon or lat
-    geographical_coord_array = numpy.array(geographical_coord_array, dtype="float64")
+    geographical_coord_array = numpy.asarray(
+        geographical_coord_array, dtype=numpy.float64
+    )
 
     # create new array to hold spherical coordinates
     spherical_coord_array = geographical_coord_array.copy()
@@ -85,7 +87,7 @@ def sph2geo(spherical_coord_array: ArrayLike, degrees=False) -> NDArray:
     """Take shape (N,2), (N,3), (2,), or (3,) spherical_coord_array ([radius], azimuth, pole) and return an array of the same shape in geographical coordinate form ([radius], lon, lat)."""
 
     # cast to numpy.ndarray with type ``numpy.float64`` just in case some loon decides to pass an integer amount of radians
-    spherical_coord_array = numpy.array(spherical_coord_array, dtype="float64")
+    spherical_coord_array = numpy.asarray(spherical_coord_array, dtype=numpy.float64)
 
     # create a new array to hold the geographical coordinates
     geographical_coord_array = spherical_coord_array.copy()
@@ -107,7 +109,7 @@ def cart2polar(cartesian_coord_array: ArrayLike, degrees=False) -> NDArray:
     Use radians for angles by default, degrees if ``degrees == True``."""
 
     # cast input sequence to numpy.ndarray with dtype numpy.float64
-    cartesian_coord_array = numpy.array(cartesian_coord_array, dtype="float64")
+    cartesian_coord_array = numpy.asarray(cartesian_coord_array, dtype=numpy.float64)
 
     # create new array to hold spherical coordinates
     polar_coord_array = numpy.empty(cartesian_coord_array.shape)
@@ -131,7 +133,7 @@ def polar2cart(polar_coord_array: ArrayLike, degrees=False) -> NDArray:
     Use radians for angles by default, degrees if ``degrees == True``."""
 
     # cast input sequence to numpy.ndarray with dtype numpy.float64
-    polar_coord_array = numpy.array(polar_coord_array, dtype="float64")
+    polar_coord_array = numpy.asarray(polar_coord_array, dtype=numpy.float64)
 
     # convert from degrees to radians if required, otherwise skip
     if degrees:
@@ -163,7 +165,8 @@ def great_circle_distance(
     """
 
     assert coordinate_system in ["spherical", "cartesian"]
-    array_1, array_2 = numpy.array(array_1), numpy.array(array_2)
+    array_1 = numpy.asarray(array_1, dtype=numpy.float64)
+    array_2 = numpy.asarray(array_2, dtype=numpy.float64)
     if coordinate_system == "cartesian":
         array_1 = cart2sph(array_1)
         array_2 = cart2sph(array_2)
