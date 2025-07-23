@@ -221,7 +221,7 @@ def fill_great_circle(
     -------
     g_profile : (n_points, 2) ndarray
         Longitudes (deg) and latitudes (deg) along the great circle. Longitudes are
-        unwrapped to avoid jumps at 180°.
+        unwrapped to avoid jumps at 180.
     angle_deg : float, optional
         Great-circle angle in degrees (only if `return_angle` is True).
     """
