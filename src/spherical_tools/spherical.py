@@ -124,6 +124,32 @@ def cart2polar(cartesian_coord_array: ArrayLike, degrees=False) -> NDArray:
     return polar_coord_array
 
 
+def polar2cart(polar_coord_array: ArrayLike, degrees=False) -> NDArray:
+    """Take shape (N,2) polar_coord_array and return an array of the same shape in Cartesian coordinates.
+
+    Use radians for angles by default, degrees if ``degrees == True``."""
+
+    # cast input sequence to numpy.ndarray with dtype numpy.float64
+    polar_coord_array = numpy.array(polar_coord_array, dtype="float64")
+
+    # convert from degrees to radians if required, otherwise skip
+    if degrees:
+        polar_coord_array[..., 1] = numpy.deg2rad(polar_coord_array[..., 1])
+
+    # create new array to hold spherical coordinates
+    cartesian_coord_array = numpy.empty(polar_coord_array.shape)
+
+    # convert to spherical coordinates
+    cartesian_coord_array[..., 0] = (
+        numpy.cos(polar_coord_array[..., 1]) * polar_coord_array[..., 0]
+    )
+    cartesian_coord_array[..., 1] = (
+        numpy.sin(polar_coord_array[..., 1]) * polar_coord_array[..., 0]
+    )
+
+    return cartesian_coord_array
+
+
 def great_circle_distance(
     array_1: ArrayLike,
     array_2: ArrayLike,
