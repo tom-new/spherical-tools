@@ -1,3 +1,10 @@
+from importlib.metadata import version, PackageNotFoundError
+
+try:
+    __version__ = version("spherical_tools")
+except PackageNotFoundError:
+    __version__ = "unknown"
+
 from .spherical import (
     cart2sph,
     geo2sph,
