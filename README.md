@@ -1,5 +1,8 @@
 # spherical-tools
 
+![PyPI](https://img.shields.io/pypi/v/spherical-tools)
+![License](https://img.shields.io/github/license/tom-new/spherical-tools)
+
 **Convert between geographic, spherical, and Cartesian coordinates.**
 This is a lightweight Python library designed for geoscientists working with coordinates on the sphere.
 
