@@ -8,9 +8,10 @@ version = "0.1.0"
 description = "Utilities for working with spherical geometry"
 readme = "README.md"
 requires-python = ">=3.9"
-authors = [{name = "Your Name", email = "you@example.com"}]
-license = {text = "MIT"}
+authors = [{name = "Tom New", email = "tomnewtonnew@gmail.com"}]
+license = {file = "LICENSE"}
 dependencies = ["numpy", "scipy"]
+keywords = ["geoscience, "coordinates", "spherical", "cartesian", "geometry"]
 
 [project.urls]
 Homepage = "https://github.com/tom-new/spherical-tools"
