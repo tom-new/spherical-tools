@@ -225,7 +225,7 @@ def fill_great_circle(
     angle_deg : float, optional
         Great-circle angle in degrees (only if `return_angle` is True).
     """
-    # combine input coords → (2, 2) array
+    # combine input coords into (2, 2) array
     geo = numpy.array([g0, g1], dtype=float)
 
     # prepend radius = 1 for each point (required by geo2sph/scipy slerp workflow)
