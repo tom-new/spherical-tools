@@ -11,7 +11,7 @@ requires-python = ">=3.9"
 authors = [{name = "Tom New", email = "tomnewtonnew@gmail.com"}]
 license = {file = "LICENSE"}
 dependencies = ["numpy", "scipy"]
-keywords = ["geoscience, "coordinates", "spherical", "cartesian", "geometry"]
+keywords = ["geoscience", "coordinates", "spherical", "cartesian", "geometry"]
 
 [project.urls]
 Homepage = "https://github.com/tom-new/spherical-tools"
