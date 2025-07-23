@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "spherical-tools"
+version = "0.1.0"
+description = "Utilities for working with spherical geometry"
+readme = "README.md"
+requires-python = ">=3.9"
+authors = [{name = "Your Name", email = "you@example.com"}]
+license = {text = "MIT"}
+dependencies = ["numpy"]
+
+[project.urls]
+Homepage = "https://github.com/tom-new/spherical-tools"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
