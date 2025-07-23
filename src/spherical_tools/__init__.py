@@ -12,6 +12,7 @@ from .spherical import (
     geo2sph,
     cart2polar,
     great_circle_distance,
+    fill_great_circle,
 )
 
 __all__ = [
@@ -21,4 +22,5 @@ __all__ = [
     "geo2sph",
     "cart2polar",
     "great_circle_distance",
+    "fill_great_circle",
 ]

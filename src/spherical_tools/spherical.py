@@ -1,5 +1,6 @@
 import numpy
 from numpy.typing import ArrayLike, NDArray
+from scipy.spatial import geometric_slerp
 
 
 def cart2sph(cartesian_coord_array: ArrayLike, degrees: bool = False) -> NDArray:
@@ -189,3 +190,70 @@ def great_circle_distance(
     )
 
     return spherical_distance
+
+
+def fill_great_circle(
+    g0: ArrayLike,
+    g1: ArrayLike,
+    res: float = 1.0,
+    n_points: int | None = None,
+    return_angle: bool = False,
+):
+    """
+    Sample points along the great-circle path between two geographic coordinates.
+
+    parameters
+    ----------
+    g0, g1 : array-like
+        (lon, lat) in degrees.
+    res : float, default 1.0
+        Target angular spacing in degrees between consecutive points. Ignored if
+        `n_points` is given.
+    n_points : int or None, default None
+        Number of samples (including endpoints). If None, it is computed from `res`.
+    return_angle : bool, default False
+        If True, also return the great-circle angle (degrees) between g0 and g1.
+
+    returns
+    -------
+    g_profile : (n_points, 2) ndarray
+        Longitudes (deg) and latitudes (deg) along the great circle. Longitudes are
+        unwrapped to avoid jumps at 180°.
+    angle_deg : float, optional
+        Great-circle angle in degrees (only if `return_angle` is True).
+    """
+    # combine input coords → (2, 2) array
+    geo = numpy.array([g0, g1], dtype=float)
+
+    # prepend radius = 1 for each point (required by geo2sph/scipy slerp workflow)
+    radii = numpy.ones((geo.shape[0], 1))
+    geo_with_r = numpy.concatenate((radii, geo), axis=1)
+
+    # conversions
+    sph = geo2sph(geo_with_r)  # -> (r, theta, phi) or whatever your convention is
+    c0, c1 = sph2cart(sph)  # two 3D cartesian vectors
+
+    # angular separation in degrees
+    angle_deg = numpy.degrees(numpy.arccos(numpy.dot(c0, c1)))
+
+    # choose number of samples
+    if n_points is None:
+        n_points = int(numpy.ceil(angle_deg / res)) + 1  # +1 to include both endpoints
+
+    # interpolate on the unit sphere
+    t = numpy.linspace(0.0, 1.0, n_points)
+    cart_profile = geometric_slerp(c0, c1, t=t)
+
+    # back to geographic lon/lat
+    sph_profile = cart2sph(cart_profile)
+    geo_profile = sph2geo(sph_profile[:, 1:])  # drop radius
+
+    # unwrap longitudes to avoid jumps across the dateline
+    geo_profile[:, 0] = numpy.unwrap(
+        numpy.radians(geo_profile[:, 0]), period=2 * numpy.pi
+    )
+    geo_profile[:, 0] = numpy.degrees(geo_profile[:, 0])
+
+    if return_angle:
+        return geo_profile, angle_deg
+    return geo_profile
