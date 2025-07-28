@@ -10,7 +10,13 @@ This is a lightweight Python library designed for geoscientists working with coo
 
 ## 📦 Installation
 
-Install the latest development version:
+Install from PyPI:
+
+```bash
+pip install spherical-tools
+```
+
+Or install the latest development version:
 
 ```bash
 pip install git+https://github.com/tom-new/spherical-tools.git
