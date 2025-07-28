@@ -3,13 +3,105 @@ from numpy.typing import ArrayLike, NDArray
 from scipy.spatial import geometric_slerp
 
 
+def validate_coordinates(
+    coords: ArrayLike,
+    coordinate_system: str,
+    dtype: type = numpy.float64,
+) -> NDArray:
+    """
+    Validate that coords is an array_like and its last dimension matches:
+      - exactly 3 if coordinate_system == 'cartesian'
+      - 2 or 3 if coordinate_system in ('geographic','spherical')
+
+    Parameters
+    ----------
+    coords : array_like
+        The coordinates to validate.
+    coordinate_system : str
+        The coordinate system, one of 'cartesian', 'geographic', or 'spherical'.
+    dtype : type, optional
+        The data type to convert the coordinates to. Default is numpy.float64.
+
+    Returns
+    -------
+    arr : ndarray
+        the validated array
+
+    Raises
+    ------
+    TypeError
+        if coords isn’t array‑like
+    ValueError
+        if last dimension size is wrong for the chosen coordinate system
+    TypeError
+        if coords cannot be converted to the specified dtype
+    """
+
+    # normalize to ndarray
+    arr = numpy.asarray(coords, dtype=dtype)
+
+    # determine what's allowed
+    if coordinate_system == "cartesian":
+        allowed = {3}
+    elif coordinate_system in ("geographic", "spherical"):
+        allowed = {2, 3}
+    elif coordinate_system == "polar":
+        allowed = {2}
+    else:
+        raise ValueError(
+            f"invalid coordinate_system={coordinate_system!r}; "
+            "expected 'cartesian', 'geographic', 'spherical', or 'polar'"
+        )
+
+    # check that there's at least one dimension
+    if arr.ndim == 0:
+        raise ValueError(f"expected array with last dimension {allowed}, got scalar")
+
+    last_dim = arr.shape[-1]
+    if last_dim not in allowed:
+        raise ValueError(
+            f"for coordinate_system={coordinate_system!r}, "
+            f"expected last dimension in {allowed}, got {last_dim}"
+        )
+
+    return arr
+
+
 def cart2sph(cartesian_coord_array: ArrayLike, degrees: bool = False) -> NDArray:
-    """Take shape (N,3) or (3,) cartesian coord_array and return an array of the same shape in spherical polar form (r,theta,phi). Based on StackOverflow response: http://stackoverflow.com/a/4116899.
+    """
+    Convert Cartesian coordinates to spherical coordinates.
 
-    Use radians for angles by default, degrees if ``degrees == True``."""
+    Takes a coordinate array in Cartesian form ``(x, y, z)`` and returns the corresponding
+    spherical coordinates ``(r, θ, φ)``, where ``r`` is the radial distance, ``θ`` is the azimuthal
+    angle in the XY-plane from the X-axis, and ``φ`` is the polar angle from the Z-axis.
 
-    # cast input sequence to numpy.ndarray with dtype numpy.float64
-    cartesian_coord_array = numpy.asarray(cartesian_coord_array, dtype=numpy.float64)
+    Parameters
+    ----------
+    cartesian_coord_array : array_like, shape (..., 3)
+        Input array of Cartesian coordinates. Can be a single 3-element vector or
+        an array of shape (N, 3).
+    degrees : bool, optional
+        If True, the output angles are returned in degrees. Default is False (radians).
+
+    Returns
+    -------
+    spherical_coord_array : ndarray, shape (..., 3)
+        Output array of spherical coordinates. Each row contains ``(r, θ, φ)``.
+
+    Notes
+    -----
+    Based on: https://stackoverflow.com/a/4116899
+
+    Examples
+    --------
+    >>> cart2sph([1, 0, 0])
+    array([1.        , 0.        , 1.57079633])
+    """
+
+    # validate input coordinates
+    cartesian_coord_array = validate_coordinates(
+        cartesian_coord_array, coordinate_system="cartesian", dtype=numpy.float64
+    )
 
     # create new array to hold spherical coordinates
     spherical_coord_array = numpy.empty(cartesian_coord_array.shape)
@@ -30,13 +122,44 @@ def cart2sph(cartesian_coord_array: ArrayLike, degrees: bool = False) -> NDArray
     return spherical_coord_array
 
 
-def sph2cart(spherical_coord_array: ArrayLike, degrees=False) -> NDArray:
-    """Take shape (N,3) or (3,) spherical_coord_array (radius, azimuth, pole) and return an array of the same shape in cartesian coordinate form (x, y, z). Based on the equations provided at: http://en.wikipedia.org/wiki/List_of_common_coordinate_transformations#From_spherical_coordinates.
+def sph2cart(spherical_coord_array: ArrayLike, degrees: bool = False) -> NDArray:
+    """
+    Convert spherical coordinates to Cartesian coordinates.
 
-    Use radians for angles by default, degrees if ``degrees == True``."""
+    Takes spherical coordinates ``(r, θ, φ)`` and converts them to
+    Cartesian ``(x, y, z)``, where ``θ`` is the azimuthal angle in the XY-plane
+    from the X-axis, and ``φ`` is the polar angle from the Z-axis.
 
-    # cast input sequence to numpy.ndarray with dtype numpy.float64
-    spherical_coord_array = numpy.asarray(spherical_coord_array, dtype=numpy.float64)
+    Parameters
+    ----------
+    spherical_coord_array : array_like, shape (..., 3)
+        Input array of spherical coordinates. Each row should contain
+        ``(radius, azimuth, polar)``.
+    degrees : bool, optional
+        If True, input angles are assumed to be in degrees. Default is False (radians).
+
+    Returns
+    -------
+    cartesian_coord_array : ndarray, shape (..., 3)
+        Output array of Cartesian coordinates.
+
+    Notes
+    -----
+    Equations from:
+    https://en.wikipedia.org/wiki/List_of_common_coordinate_transformations#From_spherical_coordinates
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> np.set_printoptions(suppress=True)  # to avoid scientific notation due to floating point rounding
+    >>> sph2cart([1, 0, np.pi/2])
+    array([1., 0., 0.])
+    """
+
+    # validate input coordinates
+    spherical_coord_array = validate_coordinates(
+        spherical_coord_array, coordinate_system="cartesian", dtype=numpy.float64
+    )
 
     # create new array to hold Cartesian coordinates
     cartesian_coord_array = numpy.empty(spherical_coord_array.shape)
@@ -63,19 +186,45 @@ def sph2cart(spherical_coord_array: ArrayLike, degrees=False) -> NDArray:
     return cartesian_coord_array
 
 
-def geo2sph(geographical_coord_array: ArrayLike, degrees=False) -> NDArray:
-    """Take shape (N,2), (N,3), (2,), or (3,) geographical_coord_array ([radius], lon, lat) and return an array of the same shape in spherical coordinate form ([radius], azimuth, pole)."""
+def geo2sph(geographic_coord_array: ArrayLike, degrees: bool = False) -> NDArray:
+    """
+    Convert geographic coordinates ``([r], lon, lat)`` to spherical coordinates ``([r], azimuth, polar)``.
 
-    # cast to numpy.ndarray with type ``numpy.float64`` since this function is likely to be passed integer degrees of lon or lat
-    geographical_coord_array = numpy.asarray(
-        geographical_coord_array, dtype=numpy.float64
+    Geographic coordinates use latitude and longitude on a sphere. This function
+    transforms them into mathematical spherical coordinates, where:
+    - Azimuth = longitude
+    - Polar angle = 90 - latitude
+
+    Parameters
+    ----------
+    geographical_coord_array : array_like, shape (..., 2) or (..., 3)
+        Input array of geographic coordinates. Each row should be either
+        ``(lon, lat)`` or ``(radius, lon, lat)``.
+    degrees : bool, optional
+        If True, output angles are returned in degrees. Default is False (radians).
+
+    Returns
+    -------
+    spherical_coord_array : ndarray, shape (..., 2) or (..., 3)
+        Output array of spherical coordinates ``(azimuth, polar)`` or ``(radius, azimuth, polar)``.
+
+    Examples
+    --------
+    >>> geo2sph([150, -33], degrees=True)
+    array([150., 123.])
+    """
+
+    # validate input coordinates
+    geographic_coord_array = validate_coordinates(
+        geographic_coord_array, coordinate_system="geographic", dtype=numpy.float64
     )
 
     # create new array to hold spherical coordinates
-    spherical_coord_array = geographical_coord_array.copy()
+    spherical_coord_array = geographic_coord_array.copy()
 
     # reverse orientation of polar angle
     spherical_coord_array[..., -1] = 90 - spherical_coord_array[..., -1]
+
     # assume that outgoing spherical coordinates should be in radians, so convert from degrees by default
     if not degrees:
         spherical_coord_array[..., -2:] = numpy.deg2rad(spherical_coord_array[..., -2:])
@@ -83,11 +232,41 @@ def geo2sph(geographical_coord_array: ArrayLike, degrees=False) -> NDArray:
     return spherical_coord_array
 
 
-def sph2geo(spherical_coord_array: ArrayLike, degrees=False) -> NDArray:
-    """Take shape (N,2), (N,3), (2,), or (3,) spherical_coord_array ([radius], azimuth, pole) and return an array of the same shape in geographical coordinate form ([radius], lon, lat)."""
+def sph2geo(spherical_coord_array: ArrayLike, degrees: bool = False) -> NDArray:
+    """
+    Convert spherical coordinates ``([r], azimuth, polar)`` to geographic coordinates ``([r], lon, lat)``.
 
-    # cast to numpy.ndarray with type ``numpy.float64`` just in case some loon decides to pass an integer amount of radians
-    spherical_coord_array = numpy.asarray(spherical_coord_array, dtype=numpy.float64)
+    This function takes spherical coordinates where:
+    - Azimuth = longitude
+    - Polar angle = angle from the Z-axis
+
+    and returns geographic coordinates where:
+    - Latitude = 90° - polar angle
+    - Longitude = azimuth
+
+    Parameters
+    ----------
+    spherical_coord_array : array_like, shape (..., 2) or (..., 3)
+        Input array of spherical coordinates. Each row should be either
+        ``(azimuth, polar)`` or ``(radius, azimuth, polar)``.
+    degrees : bool, optional
+        If True, output angles are returned in degrees. Default is False (radians).
+
+    Returns
+    -------
+    geographical_coord_array : ndarray, shape (..., 2) or (..., 3)
+        Output array in the form ``(lon, lat)`` or ``(radius, lon, lat)``.
+
+    Examples
+    --------
+    >>> sph2geo([150, 60], degrees=True)
+    array([150., 30.])
+    """
+
+    # validate input coordinates
+    spherical_coord_array = validate_coordinates(
+        spherical_coord_array, coordinate_system="spherical", dtype=numpy.float64
+    )
 
     # create a new array to hold the geographical coordinates
     geographical_coord_array = spherical_coord_array.copy()
@@ -103,13 +282,35 @@ def sph2geo(spherical_coord_array: ArrayLike, degrees=False) -> NDArray:
     return geographical_coord_array
 
 
-def cart2polar(cartesian_coord_array: ArrayLike, degrees=False) -> NDArray:
-    """Take shape (N,2) cartesian_coord_array and return an array of the same shape in polar coordinates (radius, azimuth).
+def cart2polar(cartesian_coord_array: ArrayLike, degrees: bool = False) -> NDArray:
+    """
+    Convert 2D Cartesian coordinates to polar coordinates.
 
-    Use radians for angles by default, degrees if ``degrees == True``."""
+    Takes Cartesian coordinates ``(x, y)`` and returns polar coordinates ``(r, θ)``,
+    where ``r`` is the distance from the origin and ``θ`` is the angle from the X-axis.
 
-    # cast input sequence to numpy.ndarray with dtype numpy.float64
-    cartesian_coord_array = numpy.asarray(cartesian_coord_array, dtype=numpy.float64)
+    Parameters
+    ----------
+    cartesian_coord_array : array_like, shape (..., 2)
+        Input array of 2D Cartesian coordinates.
+    degrees : bool, optional
+        If True, the output angle is in degrees. Default is False (radians).
+
+    Returns
+    -------
+    polar_coord_array : ndarray, shape (..., 2)
+        Output array of polar coordinates ``(r, θ)``.
+
+    Examples
+    --------
+    >>> cart2polar([1, 1], degrees=True)
+    array([1.41421356, 45.        ])
+    """
+
+    # validate input coordinates
+    cartesian_coord_array = validate_coordinates(
+        cartesian_coord_array, coordinate_system="polar", dtype=numpy.float64
+    )
 
     # create new array to hold spherical coordinates
     polar_coord_array = numpy.empty(cartesian_coord_array.shape)
@@ -127,13 +328,34 @@ def cart2polar(cartesian_coord_array: ArrayLike, degrees=False) -> NDArray:
     return polar_coord_array
 
 
-def polar2cart(polar_coord_array: ArrayLike, degrees=False) -> NDArray:
-    """Take shape (N,2) polar_coord_array and return an array of the same shape in Cartesian coordinates.
+def polar2cart(polar_coord_array: ArrayLike, degrees: bool = False) -> NDArray:
+    """
+    Convert polar coordinates to 2D Cartesian coordinates.
 
-    Use radians for angles by default, degrees if ``degrees == True``."""
+    Takes polar coordinates `(r, θ)` and returns Cartesian coordinates `(x, y)`.
 
-    # cast input sequence to numpy.ndarray with dtype numpy.float64
-    polar_coord_array = numpy.asarray(polar_coord_array, dtype=numpy.float64)
+    Parameters
+    ----------
+    polar_coord_array : array_like, shape (..., 2)
+        Input array of polar coordinates.
+    degrees : bool, optional
+        If True, input angles are assumed to be in degrees. Default is False (radians).
+
+    Returns
+    -------
+    cartesian_coord_array : ndarray, shape (..., 2)
+        Output array of Cartesian coordinates.
+
+    Examples
+    --------
+    >>> polar2cart([1, 45], degrees=True)
+    array([0.70710678, 0.70710678])
+    """
+
+    # validate input coordinates
+    polar_coord_array = validate_coordinates(
+        polar_coord_array, coordinate_system="polar", dtype=numpy.float64
+    )
 
     # convert from degrees to radians if required, otherwise skip
     if degrees:
@@ -157,37 +379,144 @@ def great_circle_distance(
     array_1: ArrayLike,
     array_2: ArrayLike,
     coordinate_system: str = "spherical",
-    sphere_radius: bool | float = False,
-) -> float:
-    """Calculate the haversine-based distance between two arrays of points on the surface of a sphere (array shape must be (N,3) or (3,)). Should be more accurate than the arc cosine strategy. See, for example: http://en.wikipedia.org/wiki/Haversine_formula.
+    sphere_radius: float | ArrayLike | None = None,
+) -> NDArray:
+    """
+    Compute great‐circle distances between points on a sphere using the haversine formula.
 
-    This function assumes that all your coordinate pairs have the same radius. If they don't, why!? It doesn't make sense to calculate the great circle distance between coordinates that don't lie on the same spherical shell. If you're a complete psychopath though, you can override the radius (or radii) with custom values---either a single value to use for everything or an array-like of values of length N.
+    Parameters
+    ----------
+    array_1 : ArrayLike
+        First point or set of points. Shape ``(3,)`` or ``(N, 3)``.
+        The format of the three values depends on ``coordinate_system``:
+        - ``"spherical"``: ``(θ, φ)`` or ``(r, θ, φ)``, where ``θ`` is the azimuthal angle (longitude) and ``φ`` is the polar angle (colatitude).
+        - ``"geographic"``: ``(lon, lat)`` or ``(r, lon, lat)``.
+        - ``"cartesian"``: ``(x, y, z)``.
+    array_2 : ArrayLike
+        Second point or set of points. Must have the same shape and coordinate convention as ``array_1``.
+    coordinate_system : {'spherical', 'geographic', 'cartesian'}, default: 'spherical'
+        Coordinate system of the inputs. If ``'cartesian'``, inputs are converted internally with ``cart2sph``.
+    sphere_radius : float or ArrayLike or None, default: None
+        Radius of the sphere to use for all points (scalar) or one radius per point (shape ``(N,)``).
+        If ``None``, the radii are taken from pairwise mean of the radii of the input arrays.
+
+    Returns
+    -------
+    float or ndarray
+        Great‐circle distance(s) in the same units as ``sphere_radius``. Returns a scalar if the inputs
+        are 1D, otherwise an array of shape ``(N,)``.
+
+    Notes
+    -----
+    The haversine formulation is numerically stable for small angles compared to the arc‐cosine method.
+    All angles must be provided in radians. Supplying mixed or degree units will yield incorrect results.
+
+    Raises
+    ------
+    AssertionError
+        If ``coordinate_system`` is not one of ``{'spherical', 'cartesian'}``.
+    ValueError
+        If ``array_1`` and ``array_2`` cannot be broadcast to the same shape or have incompatible last dimensions.
+
+    See Also
+    --------
+    numpy.arcsin, numpy.cos, numpy.sin
+
+    References
+    ----------
+    .. [1] Haversine formula — https://en.wikipedia.org/wiki/Haversine_formula
+
+    Examples
+    --------
+    Distances between two single points (1 radian apart in longitude on a unit sphere):
+    >>> import numpy as np
+    >>> a1 = [1.0, 0.0, np.pi / 2]  # (r, θ, φ)
+    >>> a2 = [1.0, 1.0, np.pi / 2]
+    >>> great_circle_distance(a1, a2)
+    np.float64(0.9999999999999999)
+
+    Vectorized over many points:
+    >>> pts1 = np.array([[1., 0, np.pi / 2],
+    ...                  [1., 0.5, 0.3]])
+    >>> pts2 = np.array([[1., 1., np.pi / 2],
+    ...                  [1., 0.7, 0.1]])
+    >>> np.set_printoptions(suppress=True)  # avoid scientific notation for tiny round-off
+    >>> great_circle_distance(pts1, pts2)
+    array([1.        , 0.20293885])
+
+    Override the radius (e.g., Earth mean radius in km):
+    >>> R_earth = 6371.0
+    >>> great_circle_distance(a1, a2, sphere_radius=R_earth)
+    np.float64(6370.999999999999)
     """
 
-    assert coordinate_system in ["spherical", "cartesian"]
-    array_1 = numpy.asarray(array_1, dtype=numpy.float64)
-    array_2 = numpy.asarray(array_2, dtype=numpy.float64)
-    if coordinate_system == "cartesian":
-        array_1 = cart2sph(array_1)
-        array_2 = cart2sph(array_2)
+    # check that the coordinate system is valid
+    allowed_coordinate_systems = {"spherical", "geographic", "cartesian"}
+    if not isinstance(coordinate_system, str):
+        raise TypeError(
+            f"great_circle_distance() expected a str for coordinates, got {type(coordinates).__name__!r}"
+        )
+    if coordinate_system not in allowed_coordinate_systems:
+        raise ValueError(
+            f"great_circle_distance() got invalid coordinates={coordinate_system!r}; "
+            f"expected one of: {sorted(allowed_coordinate_systems)!r}"
+        )
+
+    # validate input coordinates for the specified coordinate system
+    array_1 = validate_coordinates(
+        array_1, coordinate_system=coordinate_system, dtype=numpy.float64
+    )
+    array_2 = validate_coordinates(
+        array_2, coordinate_system=coordinate_system, dtype=numpy.float64
+    )
+
+    # check that the arrays can be broadcast to the same shape
+    try:
+        numpy.broadcast_shapes(array_1.shape, array_2.shape)
+    except ValueError as e:
+        raise ValueError(
+            f"great_circle_distance() arguments could not be broadcast together: "
+            f"{array_1.shape} vs {array_2.shape}"
+        ) from e
+
     if not sphere_radius:
-        sphere_radius = array_1[
-            ..., 0
-        ]  # get the radius (or radii) if the user has not overridden the radius
-    phi_1 = array_1[..., 1]
-    phi_2 = array_2[..., 1]
-    theta_1 = array_1[..., 2]
-    theta_2 = array_2[..., 2]
+        if coordinate_system == "cartesian":
+            # convert Cartesian coordinates to spherical coordinates
+            array_1 = cart2sph(array_1)
+            array_2 = cart2sph(array_2)
+        elif coordinate_system in {"geographic", "spherical"}:
+            if coordinate_system == "geographic":
+                # convert geographic coordinates to spherical coordinates
+                array_1 = geo2sph(array_1)
+                array_2 = geo2sph(array_2)
+            # if sphere_radius is not provided, caluclate the pairwise mean radii
+            if array_1.shape[-1] == 2:
+                raise ValueError(
+                    f"great_circle_distance() requires 'sphere_radius' when using 'spherical' or 'geographic' coordinate systems for input arrays with last dimension 2; "
+                    "provide 'sphere_radius' or use shape (3,) or (...,3) instead."
+                )
+        sphere_radius = (array_1[..., 0] + array_2[..., 0]) / 2.0
+    else:
+        sphere_radius = numpy.asarray(sphere_radius, dtype=numpy.float64)
+
+    theta_1 = array_1[..., -2]
+    theta_2 = array_2[..., -2]
+    phi_1 = array_1[..., -1]
+    phi_2 = array_2[..., -1]
 
     spherical_distance = (
         2.0
         * sphere_radius
         * numpy.arcsin(
             numpy.sqrt(
-                ((1 - numpy.cos(theta_2 - theta_1)) / 2.0)
-                + numpy.sin(theta_1)
-                * numpy.sin(theta_2)
-                * ((1 - numpy.cos(phi_2 - phi_1)) / 2.0)
+                (
+                    1
+                    - numpy.cos(phi_2 - phi_1)
+                    + numpy.sin(phi_1)
+                    * numpy.sin(phi_2)
+                    * (1 - numpy.cos(theta_2 - theta_1))
+                )
+                / 2.0
             )
         )
     )
@@ -211,9 +540,9 @@ def fill_great_circle(
         (lon, lat) in degrees.
     res : float, default 1.0
         Target angular spacing in degrees between consecutive points. Ignored if
-        `n_points` is given.
+        ``n_points`` is given.
     n_points : int or None, default None
-        Number of samples (including endpoints). If None, it is computed from `res`.
+        Number of samples (including endpoints). If None, it is computed from ``res``.
     return_angle : bool, default False
         If True, also return the great-circle angle (degrees) between g0 and g1.
 
@@ -223,7 +552,7 @@ def fill_great_circle(
         Longitudes (deg) and latitudes (deg) along the great circle. Longitudes are
         unwrapped to avoid jumps at 180.
     angle_deg : float, optional
-        Great-circle angle in degrees (only if `return_angle` is True).
+        Great-circle angle in degrees (only if ``return_angle`` is True).
     """
     # combine input coords into (2, 2) array
     geo = numpy.array([g0, g1], dtype=float)
