@@ -7,7 +7,7 @@ name = "spherical-tools"
 version = "0.1.0"
 description = "Utilities for working with spherical geometry"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 authors = [{name = "Tom New", email = "tomnewtonnew@gmail.com"}]
 license = {file = "LICENSE"}
 dependencies = ["numpy", "scipy"]
