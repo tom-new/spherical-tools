@@ -10,7 +10,6 @@ from .decorators import ensure_units
 def great_circle_distance(
     arr1: ArrayLike,
     arr2: ArrayLike,
-    *,
     degrees: bool = False,
     radius: float | ArrayLike | None = None,
 ) -> NDArray[np.float64]:
@@ -66,7 +65,7 @@ def crosses_dateline(
         Boolean array indicating whether the great-circle path crosses the dateline.
     """
 
-    # Normalise the azimuthal angles to the range [-180, 180)
+    # Normalise the azimuthal angles to the range [-π, π)
     arr2[..., 0] = ((arr2[..., 0] + np.pi) % (2 * np.pi)) - np.pi
     arr1[..., 0] = ((arr1[..., 0] + np.pi) % (2 * np.pi)) - np.pi
 
