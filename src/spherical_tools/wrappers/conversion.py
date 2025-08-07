@@ -12,10 +12,10 @@ from .._core import (
     _cart2polar,
     _polar2cart,
 )
-from .decorators import ensure_coords
+from .decorators import ensure_units
 
 
-@ensure_coords(ndim=3, name_in="Cartesian", name_out="spherical", convert_output=True)
+@ensure_units(ndim=3, name_in="Cartesian", name_out="spherical", convert_output=True)
 def cart2sph(arr: ArrayLike) -> NDArray[np.float64]:
     """Convert Cartesian coordinates to spherical coordinates.
 
@@ -52,7 +52,7 @@ def cart2sph(arr: ArrayLike) -> NDArray[np.float64]:
     return _cart2sph(arr)
 
 
-@ensure_coords(ndim=3, name_in="spherical", name_out="Cartesian", convert_input=True)
+@ensure_units(ndim=3, name_in="spherical", name_out="Cartesian", convert_input=True)
 def sph2cart(arr: ArrayLike) -> NDArray[np.float64]:
     """Convert spherical coordinates to Cartesian coordinates.
 
@@ -93,7 +93,7 @@ def sph2cart(arr: ArrayLike) -> NDArray[np.float64]:
     return _sph2cart(arr)
 
 
-@ensure_coords(
+@ensure_units(
     ndim=(2, 3),
     name_in="geographic",
     name_out="spherical",
@@ -135,7 +135,7 @@ def geo2sph(arr: ArrayLike) -> NDArray[np.float64]:
         return _geo2sph3(arr)
 
 
-@ensure_coords(
+@ensure_units(
     ndim=(2, 3),
     name_in="spherical",
     name_out="geographic",
@@ -177,7 +177,7 @@ def sph2geo(arr: ArrayLike) -> NDArray[np.float64]:
         return _sph2geo3(arr)
 
 
-@ensure_coords(ndim=3, name_in="Cartesian", name_out="geographic", convert_output=True)
+@ensure_units(ndim=3, name_in="Cartesian", name_out="geographic", convert_output=True)
 def cart2geo(arr: ArrayLike) -> NDArray[np.float64]:
     """Convert Cartesian coordinates to geographic coordinates.
 
@@ -208,7 +208,7 @@ def cart2geo(arr: ArrayLike) -> NDArray[np.float64]:
     return _cart2geo(arr)
 
 
-@ensure_coords(ndim=3, name_in="geographic", name_out="Cartesian", convert_input=True)
+@ensure_units(ndim=3, name_in="geographic", name_out="Cartesian", convert_input=True)
 def geo2cart(arr: ArrayLike) -> NDArray[np.float64]:
     """Convert geographic coordinates to Cartesian coordinates.
 
@@ -239,7 +239,7 @@ def geo2cart(arr: ArrayLike) -> NDArray[np.float64]:
     return _geo2cart(arr)
 
 
-@ensure_coords(ndim=2, name_in="Cartesian", name_out="polar", convert_output=True)
+@ensure_units(ndim=2, name_in="Cartesian", name_out="polar", convert_output=True)
 def cart2polar(arr: ArrayLike) -> NDArray[np.float64]:
     """Convert Cartesian coordinates to polar coordinates.
 
@@ -270,7 +270,7 @@ def cart2polar(arr: ArrayLike) -> NDArray[np.float64]:
     return _cart2polar(arr)
 
 
-@ensure_coords(ndim=2, name_in="polar", name_out="Cartesian", convert_input=True)
+@ensure_units(ndim=2, name_in="polar", name_out="Cartesian", convert_input=True)
 def polar2cart(arr: ArrayLike) -> NDArray[np.float64]:
     """Convert polar coordinates to Cartesian coordinates.
 
