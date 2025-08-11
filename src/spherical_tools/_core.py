@@ -4,9 +4,19 @@ from numpy.typing import NDArray
 
 def _cart2sph(cart: NDArray[np.float64]) -> NDArray[np.float64]:
     sph = np.empty_like(cart)  # initialise output array
-    sph[..., 0] = np.linalg.norm(cart, axis=-1)  # radius
-    sph[..., 1] = np.arctan2(cart[..., 1], cart[..., 0])  # azimuthal angle
-    sph[..., 2] = np.arccos(cart[..., 2] / sph[..., 0])  # polar angle
+    # radius
+    r = np.linalg.norm(cart, axis=-1)
+    sph[..., 0] = r
+
+    # azimuthal angle
+    sph[..., 1] = np.arctan2(cart[..., 1], cart[..., 0])
+
+    # polar angle
+    z_over_r = np.divide(cart[..., 2], r, out=np.zeros_like(r), where=r != 0)
+    z_over_r = np.clip(z_over_r, -1.0, 1.0)
+    phi = np.arccos(z_over_r)
+    phi = np.where(r == 0, np.nan, phi)  # undefined for zero vector
+    sph[..., 2] = phi
     return sph
 
 
@@ -49,10 +59,20 @@ def _geo2sph3(geo: NDArray[np.float64]) -> NDArray[np.float64]:
 
 
 def _cart2geo(cart: NDArray[np.float64]) -> NDArray[np.float64]:
-    geo = np.empty_like(cart)  # initialise output array
-    geo[..., 0] = np.linalg.norm(cart, axis=-1)  # radius
-    geo[..., 1] = np.arctan2(cart[..., 1], cart[..., 0])  # longitude/azimuthal angle
-    geo[..., 2] = np.arcsin(cart[..., 2] / geo[..., 0])  # latitude
+    geo = np.empty_like(cart)
+    # radius
+    r = np.linalg.norm(cart, axis=-1)
+    geo[..., 0] = r
+
+    # longitude
+    geo[..., 1] = np.arctan2(cart[..., 1], cart[..., 0])
+
+    # latitude
+    z_over_r = np.divide(cart[..., 2], r, out=np.zeros_like(r), where=r != 0)
+    z_over_r = np.clip(z_over_r, -1.0, 1.0)
+    lat = np.arcsin(z_over_r)
+    lat = np.where(r == 0, np.nan, lat)  # undefined for zero vector
+    geo[..., 2] = lat
     return geo
 
 
