@@ -5,24 +5,11 @@ try:
 except PackageNotFoundError:
     __version__ = "unknown"
 
-from .spherical import (
-    cart2sph,
-    sph2cart,
-    geo2sph,
-    sph2geo,
-    cart2polar,
-    polar2cart,
-    great_circle_distance,
-    fill_great_circle,
-)
+# pull in child packages/modules first so their __all__ exist
+from . import wrappers as _wrappers
 
-__all__ = [
-    "cart2sph",
-    "sph2cart",
-    "geo2sph",
-    "sph2geo",
-    "cart2polar",
-    "polar2cart",
-    "great_circle_distance",
-    "fill_great_circle",
-]
+# re-export only what those modules declare as public
+from .wrappers import *
+
+# package-level public API for `spherical_tools`
+__all__ = _wrappers.__all__
