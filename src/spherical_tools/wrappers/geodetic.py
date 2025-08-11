@@ -5,12 +5,15 @@ __all__ = [
 ]
 
 import warnings
+from typing import Literal, Tuple
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
 from .._core import _unit_sphere_angle
-from .._core import _geo2cart, _cart2geo, _cart2sph
+from .._core import _geo2cart, _cart2geo, _cart2sph, _geo2sph2, _sph2cart
 from .._vendor.slerp import _geometric_slerp
 from .decorators import ensure_units
+
+CoordinateSystem = Literal["spherical", "geographic"]
 
 
 def great_circle_distance(
@@ -18,66 +21,149 @@ def great_circle_distance(
     arr2: ArrayLike,
     degrees: bool = False,
     radius: float | ArrayLike | None = None,
+    *,
+    coordinate_system: CoordinateSystem = "spherical",
 ) -> NDArray[np.float64]:
-    """Calculate the great-circle distance between two points on a sphere.
+    """Great-circle distance (or central angle) between two points on a sphere.
 
-    The great-circle distance is the shortest distance between two points on the
-    surface of a sphere, measured along its surface. If ``radius`` is not
-    provided, it defaults to the unit sphere (radius = 1). In other words, the
-    angle(s) between the points is returned. The input coordinates should be in
-    spherical coordinates ``(θ, φ)``, where ``θ`` is the azimuthal angle from
-    the X-axis in the XY-plane, and ``φ`` is the polar angle from the Z-axis.
+    The great-circle distance is the shortest path along the sphere’s surface.
+    If ``radius`` is ``None``, the function returns the central angle. In that
+    angular-only case, ``degrees`` controls the output unit. If ``radius`` is
+    provided, the result is the great circle distance in the same units as
+    ``radius``, regardless of ``degrees``.
 
     Parameters
     ----------
-    arr1 : array_like, shape (..., 2)
-        First point or sequence of points in spherical coordinates (θ, φ).
-    arr2 : array_like, shape (..., 2)
-        Second point or sequence of points in spherical coordinates (θ, φ).
+    arr1, arr2 : array_like, shape (..., 2)
+        Input coordinates. Interpretation depends on ``coordinate_system``:
+        - ``'spherical'``: ``(θ, φ)`` where ``θ`` is azimuth in the XY-plane
+          from +X, and ``φ`` is the polar (colatitude) angle from +Z.
+        - ``'geographic'``: ``(lon, lat)`` with geodetic latitude.
+        Inputs must be broadcastable against each other.
     degrees : bool, optional
-        If True, the output is in degrees. Default is False (radians).
+        If ``True``, input angles are interpreted as degrees. When
+        ``radius is None``, the returned central angle is also in degrees.
+        Default is ``False`` (radians).
     radius : float or array_like, optional
-        Radius of the sphere. If None, defaults to 1 (unit sphere).
+        Sphere radius. If provided, the output is a distance (units of
+        ``radius``). If ``None``, returns the central angle.
+    coordinate_system : {'spherical', 'geographic'}, optional
+        Coordinate system of the inputs. Default is ``'spherical'``.
 
     Returns
     -------
-    ndarray, shape (...,)
-        Great-circle distance(s) between the points in radians or degrees.
+    ndarray of float64, shape (...,)
+        Central angle (if ``radius`` is ``None``) or great-circle distance
+        (if ``radius`` is provided).
+
+    Notes
+    -----
+    - Internally converts inputs to spherical ``(θ, φ)`` in radians and calls a
+      numerically stable haversine-style core.
+
+    Examples
+    --------
+    >>> # lon/lat in degrees (Sydney to Perth); get angular separation (deg)
+    >>> syd = [151.21, -33.87]
+    >>> per = [115.86, -31.95]
+    >>> ang_deg = great_circle_distance(syd, per, degrees=True, coordinate_system="geographic")
+    >>> # now as a distance using Earth's mean radius (km)
+    >>> R_earth_km = 6371.0088
+    >>> d_km = great_circle_distance(syd, per, degrees=True, coordinate_system="geographic", radius=R_earth_km)
     """
 
-    angle = _unit_sphere_angle(arr1, arr2)
-    return angle if radius is None else angle * np.asarray(radius, dtype=np.float64)
+    a1 = np.asarray(arr1, dtype=np.float64)
+    a2 = np.asarray(arr2, dtype=np.float64)
+
+    if a1.shape[-1] != 2 or a2.shape[-1] != 2:
+        raise ValueError("a1 and a2 must have shape (..., 2)")
+
+    a1, a2 = np.broadcast_arrays(a1, a2)
+
+    if degrees:
+        a1 = np.deg2rad(a1)
+        a2 = np.deg2rad(a2)
+
+    if coordinate_system == "geographic":
+        a1 = _geo2sph2(a1)
+        a2 = _geo2sph2(a2)
+    elif coordinate_system == "spherical":
+        pass
+    else:
+        raise ValueError("coordinate_system must be 'spherical' or 'geographic'")
+
+    angle_rad = _unit_sphere_angle(a1, a2)
+    if radius is None:
+        return np.rad2deg(angle_rad) if degrees else angle_rad
+    return angle_rad * np.asarray(radius, dtype=np.float64)
 
 
 def crosses_dateline(
     arr1: ArrayLike,
     arr2: ArrayLike,
+    *,
+    coordinate_system: CoordinateSystem = "spherical",
+    degrees: bool = False,
 ) -> NDArray[np.bool_]:
-    """Check if the great-circle path between two points crosses the dateline.
+    """
+    Check whether the shortest great-circle path between two points crosses the
+    antimeridian (dateline).
 
-    The dateline is considered crossed if the azimuthal angle ``θ`` of the two
-    points differs by more than 180 degrees.
+    The dateline is taken as longitudes ±π (±180°). The path is considered to
+    cross if the absolute difference in azimuth/longitude between the two
+    points, after normalizing each to ``[-π, π)``, exceeds π.
 
     Parameters
     ----------
-    arr1 : array_like, shape (..., 2)
-        First point or sequence of points in spherical coordinates (θ, φ).
-    arr2 : array_like, shape (..., 2)
-        Second point or sequence of points in spherical coordinates (θ, φ).
+    arr1, arr2 : array_like, shape (..., 2)
+        Input coordinates. Interpretation depends on ``coordinate_system``:
+        - ``'spherical'``: ``(θ, φ)`` where ``θ`` is azimuth in the XY-plane
+          from +X, and ``φ`` is the polar (colatitude) angle from +Z.
+        - ``'geographic'``: ``(lon, lat)`` with geodetic latitude.
+        Inputs must be broadcastable against each other.
+    coordinate_system : {'spherical', 'geographic'}, optional
+        Coordinate system of the inputs. Default is ``'spherical'``.
+    degrees : bool, optional
+        If ``True``, interpret input angles as degrees. Default is ``False``
+        (radians).
 
     Returns
     -------
-    ndarray, shape (...,)
-        Boolean array indicating whether the great-circle path crosses the dateline.
+    ndarray of bool, shape (...,)
+        Boolean mask indicating whether the great-circle path crosses the
+        dateline.
+
+    Notes
+    -----
+    - Does not mutate the inputs.
+    - Uses only the azimuth/longitude component.
+    - Equality at exactly π is treated as *not* crossing.
     """
+    a1 = np.asarray(arr1, dtype=np.float64)
+    a2 = np.asarray(arr2, dtype=np.float64)
 
-    # Normalise the azimuthal angles to the range [-π, π)
-    arr2[..., 0] = ((arr2[..., 0] + np.pi) % (2 * np.pi)) - np.pi
-    arr1[..., 0] = ((arr1[..., 0] + np.pi) % (2 * np.pi)) - np.pi
+    if a1.shape[-1] != 2 or a2.shape[-1] != 2:
+        raise ValueError("arr1 and arr2 must have shape (..., 2)")
 
-    # Calculate the absolute difference in azimuthal angles
-    angle_diff = np.abs(arr1[..., 0] - arr2[..., 0])
+    # broadcast once, up front
+    a1, a2 = np.broadcast_arrays(a1, a2)
 
+    # pick the azimuth/longitude component
+    if coordinate_system in ["geographic", "spherical"]:
+        th1 = a1[..., 0]
+        th2 = a2[..., 0]
+    else:
+        raise ValueError("coordinate_system must be 'spherical' or 'geographic'")
+
+    if degrees:
+        th1 = np.deg2rad(th1)
+        th2 = np.deg2rad(th2)
+
+    # normalize each angle to [-π, π)
+    th1 = (th1 + np.pi) % (2.0 * np.pi) - np.pi
+    th2 = (th2 + np.pi) % (2.0 * np.pi) - np.pi
+
+    angle_diff = np.abs(th1 - th2)
     return angle_diff > np.pi
 
 
@@ -88,103 +174,130 @@ def fill_great_circle(
     n_points: int | None = None,
     return_angle: bool = False,
     tol: float = 1e-7,
-):
+    *,
+    coordinate_system: CoordinateSystem = "geographic",
+    degrees: bool = True,
+) -> NDArray[np.float64] | Tuple[NDArray[np.float64], float]:
     """
-    Sample points along the great-circle path between two geographic coordinates.
+    Sample points along the great-circle path between two points.
 
     Parameters
     ----------
-    g0, g1 : array-like
-        (lon, lat) in degrees.
-    res : float, default 1.0
-        Target angular spacing in degrees between consecutive points. Ignored if
-        ``n_points`` is given.
-    n_points : int or None, default None
-        Number of samples (including endpoints). If None, it is computed from ``res``.
-    return_angle : bool, default False
-        If True, also return the great-circle angle (degrees) between g0 and g1.
-    tol : float
-        The absolute tolerance for determining if arr1 and arr2 are antipodes.
+    arr1, arr2
+        Endpoints of the path, shape ``(2,)``. Interpretation depends on
+        ``coordinate_system``:
+          - ``'geographic'``: ``(lon, lat)``
+          - ``'spherical'``: ``(θ, φ)`` where ``θ`` is azimuth in the XY-plane
+            from +X, and ``φ`` is the polar (colatitude) angle from +Z.
+    res
+        Target angular spacing between consecutive samples. Interpreted in
+        degrees if ``degrees=True`` and radians otherwise. Ignored if
+        ``n_points`` is provided.
+    n_points
+        Number of samples, including both endpoints. If ``None``, computed as
+        ``ceil(angle / res) + 1`` with a minimum of 2.
+    return_angle
+        If ``True``, also return the great-circle angle between the endpoints
+        (in degrees if ``degrees=True``, else radians).
+    tol
+        Absolute tolerance to detect antipodal endpoints (ambiguous SLERP path).
+    coordinate_system
+        One of ``{'geographic', 'spherical'}``. Controls how coordinates are
+        interpreted and how the output is expressed.
+    degrees
+        If ``True``, interpret inputs (and ``res``) as degrees and return the
+        sampled coordinates in degrees. If ``False``, use radians throughout.
 
     Returns
     -------
-    g_profile : (n_points, 2) ndarray
-        Longitudes (deg) and latitudes (deg) along the great circle. Longitudes are
-        unwrapped to avoid jumps at 180.
-    angle_deg : float, optional
-        Great-circle angle in degrees (only if ``return_angle`` is True).
+    g_profile : (n_points, 2) ndarray of float64
+        Coordinates along the great circle in the requested ``coordinate_system``
+        and angle unit. For geographic, longitudes are unwrapped to avoid jumps
+        at ±180° (or ±π). For spherical, azimuth ``θ`` is unwrapped.
+    angle : float, optional
+        Central angle between endpoints, returned only when
+        ``return_angle=True`` (in degrees if ``degrees=True``, else radians).
+
+    Notes
+    -----
+    - Uses geometric SLERP on unit vectors via core converters only:
+      ``_geo2cart``, ``_sph2cart``, ``_cart2geo``, ``_cart2sph``,
+      and ``_unit_sphere_angle``.
     """
+    a1 = np.asarray(arr1, dtype=np.float64)
+    a2 = np.asarray(arr2, dtype=np.float64)
 
-    arr1 = np.asarray(arr1, dtype=np.float64)
-    arr2 = np.asarray(arr2, dtype=np.float64)
-
-    res = float(res)
+    if a1.shape != (2,) or a2.shape != (2,):
+        raise ValueError("arr1 and arr2 must both have shape (2,)")
 
     if n_points is not None:
         n_points = int(n_points)
         if n_points < 2:
             raise ValueError("n_points must be at least 2 to include both endpoints.")
 
-    if arr1.ndim != 1 or arr2.ndim != 1:
-        raise ValueError("Coordinate arrays arr1 and arr2 must be shape (2,)")
+    if not isinstance(res, (int, float)):
+        raise ValueError("res must be a float-like value.")
+    if not isinstance(tol, float):
+        raise ValueError("tol must be a float.")
 
-    if arr1.size != arr2.size:
-        raise ValueError("The dimensions of arr1 and arr2 must match (have same size)")
+    # early-out for identical endpoints (preserve input units + convention)
+    if np.allclose(a1, a2, rtol=0.0, atol=1e-15):
+        n = 2 if n_points is None else n_points
+        prof = np.repeat(a1[np.newaxis, :], n, axis=0)
+        return (prof, 0.0 if not return_angle else (prof, 0.0))[
+            0 if not return_angle else 1
+        ]
 
-    if np.array_equal(arr1, arr2):
-        return np.linspace(arr1, arr1, t.size)
+    # convert inputs to radians for core converters
+    a1_rad = np.deg2rad(a1) if degrees else a1
+    a2_rad = np.deg2rad(a2) if degrees else a2
 
-    arr1 = np.deg2rad(arr1)
-    arr2 = np.deg2rad(arr2)
+    # build unit cartesian vectors using core converters only
+    if coordinate_system == "geographic":
+        # geo (lon, lat) [rad] -> add r=1 -> cart -> sph -> drop radius
+        rvec = np.array([1.0], dtype=np.float64)
+        thphi1 = _geo2sph2(np.concatenate((rvec, a1_rad)))[1:]  # (θ, φ)
+        thphi2 = _geo2sph2(np.concatenate((rvec, a2_rad)))[1:]  # (θ, φ)
+    elif coordinate_system == "spherical":
+        thphi1 = a1_rad  # already (θ, φ)
+        thphi2 = a2_rad
+    else:
+        raise ValueError("coordinate_system must be 'geographic' or 'spherical'")
 
-    radii = np.ones((arr1.shape[:-1] + (1,)), dtype=np.float64)
-    arr1 = np.concatenate((radii, arr1), axis=-1)
-    arr2 = np.concatenate((radii, arr2), axis=-1)
+    # compute the angle between the two points on the unit sphere
+    angle_rad = _unit_sphere_angle(thphi1, thphi2)
 
-    arr1 = _geo2cart(arr1)
-    arr2 = _geo2cart(arr2)
-
-    # separation
-    coord_dist = np.linalg.norm(arr2 - arr1, axis=-1)
-
-    # diameter of 2 within tolerance means antipodes, which is a problem
-    # for all unit n-spheres (even the 0-sphere would have an ambiguous path)
-    if np.allclose(coord_dist, 2.0, rtol=0, atol=tol):
+    # detect antipodes via chord length ~ 2
+    rvec = np.array([1.0], dtype=np.float64)
+    p1 = _sph2cart(np.concatenate((rvec, thphi1)))  # (3,)
+    p2 = _sph2cart(np.concatenate((rvec, thphi2)))  # (3,)
+    chord = np.linalg.norm(p2 - p1)
+    if np.allclose(chord, 2.0, rtol=0.0, atol=tol):
         warnings.warn(
-            "start and end are antipodes "
-            "using the specified tolerance; "
-            "this may cause ambiguous slerp paths",
+            "start and end are antipodes using the specified tolerance; "
+            "this may cause ambiguous SLERP paths",
             stacklevel=2,
         )
 
-    if not isinstance(tol, float):
-        raise ValueError("tol must be a float")
-    else:
-        tol = np.fabs(tol)
-
-    angular_distance = _unit_sphere_angle(_cart2sph(arr1), _cart2sph(arr2))
-    print(angular_distance)
-    # choose number of samples
+    # decide number of samples
     if n_points is None:
-        n_points = (
-            int(np.ceil(angular_distance / np.deg2rad(res))) + 1
-        )  # +1 to include both endpoints
-
-    # generate interpolation points
-    t = np.linspace(0.0, 1.0, n_points)
+        if res <= 0:
+            raise ValueError("res must be positive.")
+        angle_unit = np.rad2deg(angle_rad) if degrees else angle_rad
+        n_points = int(np.ceil(float(angle_unit) / float(res))) + 1
+        n_points = max(n_points, 2)
 
     # interpolate on the unit sphere
-    profile = _geometric_slerp(arr1, arr2, t)
+    t = np.linspace(0.0, 1.0, n_points)
+    profile_cart = _geometric_slerp(p1, p2, t)  # (n_points, 3)
 
-    # convert to geographic coords and drop radius
-    profile = _cart2geo(profile)[:, 1:]
-
-    # unwrap longitudes to avoid jumps across the dateline
-    profile[:, 0] = np.unwrap(profile[:, 0], period=2 * np.pi)
-
-    # convert to degrees
-    profile = np.rad2deg(profile)
+    # convert back using core converters; unwrap periodic axis; then apply units
+    conv = _cart2geo if coordinate_system == "geographic" else _cart2sph
+    out = conv(profile_cart)[..., 1:]  # drop radius
+    out[..., 0] = np.unwrap(out[..., 0], period=2.0 * np.pi)  # unwrap lon or θ
+    if degrees:
+        out = np.rad2deg(out)
 
     if return_angle:
-        return profile, angular_distance
-    return profile
+        return out, (float(np.rad2deg(angle_rad)) if degrees else float(angle_rad))
+    return out
