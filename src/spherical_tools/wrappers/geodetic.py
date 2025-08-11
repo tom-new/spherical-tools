@@ -72,6 +72,9 @@ def great_circle_distance(
     >>> d_km = great_circle_distance(syd, per, degrees=True, coordinate_system="geographic", radius=R_earth_km)
     """
 
+    if coordinate_system not in ("geographic", "spherical"):
+        raise ValueError("coordinate_system must be 'geographic' or 'spherical'")
+
     a1 = np.asarray(arr1, dtype=np.float64)
     a2 = np.asarray(arr2, dtype=np.float64)
 
@@ -87,10 +90,6 @@ def great_circle_distance(
     if coordinate_system == "geographic":
         a1 = _geo2sph2(a1)
         a2 = _geo2sph2(a2)
-    elif coordinate_system == "spherical":
-        pass
-    else:
-        raise ValueError("coordinate_system must be 'spherical' or 'geographic'")
 
     angle_rad = _unit_sphere_angle(a1, a2)
     if radius is None:
@@ -224,6 +223,10 @@ def fill_great_circle(
       ``_geo2cart``, ``_sph2cart``, ``_cart2geo``, ``_cart2sph``,
       and ``_unit_sphere_angle``.
     """
+
+    if coordinate_system not in ("geographic", "spherical"):
+        raise ValueError("coordinate_system must be 'geographic' or 'spherical'")
+
     a1 = np.asarray(arr1, dtype=np.float64)
     a2 = np.asarray(arr2, dtype=np.float64)
 
@@ -258,11 +261,9 @@ def fill_great_circle(
         rvec = np.array([1.0], dtype=np.float64)
         thphi1 = _geo2sph2(np.concatenate((rvec, a1_rad)))[1:]  # (θ, φ)
         thphi2 = _geo2sph2(np.concatenate((rvec, a2_rad)))[1:]  # (θ, φ)
-    elif coordinate_system == "spherical":
+    else:
         thphi1 = a1_rad  # already (θ, φ)
         thphi2 = a2_rad
-    else:
-        raise ValueError("coordinate_system must be 'geographic' or 'spherical'")
 
     # compute the angle between the two points on the unit sphere
     angle_rad = _unit_sphere_angle(thphi1, thphi2)
