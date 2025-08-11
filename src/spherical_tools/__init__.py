@@ -5,33 +5,11 @@ try:
 except PackageNotFoundError:
     __version__ = "unknown"
 
-from .wrappers.conversion import (
-    cart2sph,
-    sph2cart,
-    geo2sph,
-    sph2geo,
-    cart2geo,
-    geo2cart,
-    cart2polar,
-    polar2cart,
-)
+# pull in child packages/modules first so their __all__ exist
+from . import wrappers as _wrappers
 
-from .wrappers.geodetic import (
-    great_circle_distance,
-    crosses_dateline,
-    fill_great_circle,
-)
+# re-export only what those modules declare as public
+from .wrappers import *
 
-__all__ = [
-    "cart2sph",
-    "sph2cart",
-    "geo2sph",
-    "sph2geo",
-    "cart2geo",
-    "geo2cart",
-    "cart2polar",
-    "polar2cart",
-    "great_circle_distance",
-    "crosses_dateline",
-    "fill_great_circle",
-]
+# package-level public API for `spherical_tools`
+__all__ = _wrappers.__all__
