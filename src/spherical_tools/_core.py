@@ -101,15 +101,16 @@ def _polar2cart(polar: NDArray[np.float64]) -> NDArray[np.float64]:
 def _unit_sphere_angle(
     arr1: NDArray[np.float64], arr2: NDArray[np.float64]
 ) -> NDArray[np.float64]:
-    return 2.0 * np.arcsin(
-        np.sqrt(
-            (
-                1
-                - np.cos(arr2[..., 1] - arr1[..., 1])
-                + np.sin(arr1[..., 1])
-                * np.sin(arr2[..., 1])
-                * (1 - np.cos(arr2[..., 0] - arr1[..., 0]))
-            )
-            / 2.0
-        )
+    dtheta = arr2[..., 0] - arr1[..., 0]
+    # wrap around dateline to keep differences small
+    dtheta = (dtheta + np.pi) % (2.0 * np.pi) - np.pi
+    dphi = arr2[..., 1] - arr1[..., 1]
+
+    # haversine-like expression using cos/sin on colatitudes
+    h = 0.5 * (
+        1.0
+        - np.cos(dphi)
+        + np.sin(arr1[..., 1]) * np.sin(arr2[..., 1]) * (1.0 - np.cos(dtheta))
     )
+    h = np.clip(h, 0.0, 1.0)  # protect against tiny FP drift
+    return 2.0 * np.arcsin(np.sqrt(h))
