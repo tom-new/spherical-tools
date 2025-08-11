@@ -10,6 +10,8 @@ from .wrappers.conversion import (
     sph2cart,
     geo2sph,
     sph2geo,
+    cart2geo,
+    geo2cart,
     cart2polar,
     polar2cart,
 )
@@ -25,6 +27,8 @@ __all__ = [
     "sph2cart",
     "geo2sph",
     "sph2geo",
+    "cart2geo",
+    "geo2cart",
     "cart2polar",
     "polar2cart",
     "great_circle_distance",
