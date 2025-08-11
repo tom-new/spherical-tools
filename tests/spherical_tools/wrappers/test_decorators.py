@@ -4,6 +4,7 @@ from numpy.testing import assert_allclose
 
 from spherical_tools.wrappers.decorators import validate_coordinates, ensure_units
 
+
 class TestValidateCoordinates:
 
     def test_validate_coordinates_accepts_list_and_casts_float64(self):
@@ -110,7 +111,11 @@ class TestEnsureUnits:
 
     def test_no_conversion_flags_false_but_degrees_true(self):
         @ensure_units(
-            ndim=3, name_in="in", name_out="out", convert_input=False, convert_output=False
+            ndim=3,
+            name_in="in",
+            name_out="out",
+            convert_input=False,
+            convert_output=False,
         )
         def core(arr):
             return arr.copy()
@@ -189,7 +194,11 @@ class TestEnsureUnits:
 
     def test_2d_array_convert_input(self):
         @ensure_units(
-            ndim=3, name_in="in", name_out="out", convert_input=True, angles_in={3: (1, 2)}
+            ndim=3,
+            name_in="in",
+            name_out="out",
+            convert_input=True,
+            angles_in={3: (1, 2)},
         )
         def core(arr):
             return arr
