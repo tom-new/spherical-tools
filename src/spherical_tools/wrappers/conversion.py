@@ -15,7 +15,13 @@ from .._core import (
 from .decorators import ensure_units
 
 
-@ensure_units(ndim=3, name_in="Cartesian", name_out="spherical", convert_output=True)
+@ensure_units(
+    ndim=3,
+    name_in="Cartesian",
+    name_out="spherical",
+    convert_output=True,
+    angles_out={3: (1, 2)},
+)
 def cart2sph(arr: ArrayLike) -> NDArray[np.float64]:
     """Convert Cartesian coordinates to spherical coordinates.
 
@@ -52,7 +58,13 @@ def cart2sph(arr: ArrayLike) -> NDArray[np.float64]:
     return _cart2sph(arr)
 
 
-@ensure_units(ndim=3, name_in="spherical", name_out="Cartesian", convert_input=True)
+@ensure_units(
+    ndim=3,
+    name_in="spherical",
+    name_out="Cartesian",
+    convert_input=True,
+    angles_in={3: (1, 2)},
+)
 def sph2cart(arr: ArrayLike) -> NDArray[np.float64]:
     """Convert spherical coordinates to Cartesian coordinates.
 
@@ -93,12 +105,21 @@ def sph2cart(arr: ArrayLike) -> NDArray[np.float64]:
     return _sph2cart(arr)
 
 
+# spherical <-> geographic: may be either a 2- or 3-vector, with the last 2 indices being angles
+#  - 3-vector: angles (1,2)
+#  - 2-vector: angles (0,1)
+SPH_ANGLE_SPEC = {2: (0, 1), 3: (1, 2)}
+GEO_ANGLE_SPEC = {2: (0, 1), 3: (1, 2)}
+
+
 @ensure_units(
     ndim=(2, 3),
     name_in="geographic",
     name_out="spherical",
     convert_input=True,
     convert_output=True,
+    angles_in=GEO_ANGLE_SPEC,
+    angles_out=SPH_ANGLE_SPEC,
 )
 def geo2sph(arr: ArrayLike) -> NDArray[np.float64]:
     """Convert geographic coordinates to spherical coordinates.
@@ -141,6 +162,8 @@ def geo2sph(arr: ArrayLike) -> NDArray[np.float64]:
     name_out="geographic",
     convert_input=True,
     convert_output=True,
+    angles_in=SPH_ANGLE_SPEC,
+    angles_out=GEO_ANGLE_SPEC,
 )
 def sph2geo(arr: ArrayLike) -> NDArray[np.float64]:
     """Convert spherical coordinates to geographic coordinates.
@@ -177,7 +200,14 @@ def sph2geo(arr: ArrayLike) -> NDArray[np.float64]:
         return _sph2geo3(arr)
 
 
-@ensure_units(ndim=3, name_in="Cartesian", name_out="geographic", convert_output=True)
+# geographic -> Cartesian: always a 3-vector with indices 1 and 2 being angles
+@ensure_units(
+    ndim=3,
+    name_in="Cartesian",
+    name_out="geographic",
+    convert_output=True,
+    angles_out={3: (1, 2)},
+)
 def cart2geo(arr: ArrayLike) -> NDArray[np.float64]:
     """Convert Cartesian coordinates to geographic coordinates.
 
@@ -208,7 +238,14 @@ def cart2geo(arr: ArrayLike) -> NDArray[np.float64]:
     return _cart2geo(arr)
 
 
-@ensure_units(ndim=3, name_in="geographic", name_out="Cartesian", convert_input=True)
+# Cartesian -> geographic: always a 3-vector with indices 1 and 2 being angles
+@ensure_units(
+    ndim=3,
+    name_in="geographic",
+    name_out="Cartesian",
+    convert_input=True,
+    angles_in={3: (1, 2)},
+)
 def geo2cart(arr: ArrayLike) -> NDArray[np.float64]:
     """Convert geographic coordinates to Cartesian coordinates.
 
@@ -239,7 +276,14 @@ def geo2cart(arr: ArrayLike) -> NDArray[np.float64]:
     return _geo2cart(arr)
 
 
-@ensure_units(ndim=2, name_in="Cartesian", name_out="polar", convert_output=True)
+# Cartesian -> polar: always a 2-vector with only index 1 being an angle
+@ensure_units(
+    ndim=2,
+    name_in="Cartesian",
+    name_out="polar",
+    convert_output=True,
+    angles_out={2: (1,)},
+)
 def cart2polar(arr: ArrayLike) -> NDArray[np.float64]:
     """Convert Cartesian coordinates to polar coordinates.
 
@@ -270,7 +314,14 @@ def cart2polar(arr: ArrayLike) -> NDArray[np.float64]:
     return _cart2polar(arr)
 
 
-@ensure_units(ndim=2, name_in="polar", name_out="Cartesian", convert_input=True)
+# polar -> Cartesian: always a 2-vector with only index 1 being an angle
+@ensure_units(
+    ndim=2,
+    name_in="polar",
+    name_out="Cartesian",
+    convert_input=True,
+    angles_in={2: (1,)},
+)
 def polar2cart(arr: ArrayLike) -> NDArray[np.float64]:
     """Convert polar coordinates to Cartesian coordinates.
 

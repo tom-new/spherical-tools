@@ -1,37 +1,55 @@
-import numpy as np
+# decorators.py
+from __future__ import annotations
 from functools import wraps
-from typing import Callable, Literal, Sequence, Union
+from typing import Callable, Sequence, Union
+import numpy as np
 from numpy.typing import ArrayLike, NDArray
+
+AngleSpec = Union[
+    None, int, slice, Sequence[int], dict[int, Union[int, slice, Sequence[int]]]
+]
+
+
+def _angle_idx(spec: AngleSpec, lastdim: int) -> AngleSpec:
+    """Resolve an angle index spec for a given last dimension."""
+    if spec is None:
+        return None
+    if isinstance(spec, dict):
+        return spec.get(lastdim, None)
+    return spec
 
 
 def validate_coordinates(
     arr: ArrayLike, *, ndim: Union[int, Sequence[int]], name_in: str, name_out: str
 ) -> NDArray[np.float64]:
     """
-    Convert arr to a float64 ndarray and check that last dimension matches ndim.
+    Convert arr to float64 ndarray and check last dimension size(s).
 
     Parameters
     ----------
     arr
-        array-like input
+        array-like input.
     ndim
-        allowed sizes for the last dimension
-    name_in
-        human-readable name for error messages
-    name_out
-        human-readable name for error messages
+        allowed sizes for the last dimension.
+    name_in, name_out
+        names used in error messages.
 
     Returns
     -------
-    out
-        array converted to float64 with validated shape
-    """
+    out : ndarray
+        view/copy of input as float64 ndarray.
 
+    Raises
+    ------
+    ValueError
+        if last dimension is not in ``ndim``.
+    """
     out = np.asarray(arr, dtype=np.float64)
     allowed = (ndim,) if isinstance(ndim, int) else tuple(ndim)
-    if out.ndim < 1 or out.shape[-1] not in allowed:
+    if out.ndim == 0 or out.shape[-1] not in allowed:
         raise ValueError(
-            f"Converting from {name_in!r} coordinates to {name_out!r} coordinates must have last dimension in {allowed}"
+            f"Converting from '{name_in}' coordinates to '{name_out}' coordinates "
+            f"must have last dimension in {allowed}"
         )
     return out
 
@@ -43,27 +61,37 @@ def ensure_units(
     *,
     convert_input: bool = False,
     convert_output: bool = False,
+    angles_in: AngleSpec = None,
+    angles_out: AngleSpec = None,
 ) -> Callable[[Callable[..., NDArray[np.float64]]], Callable[..., NDArray[np.float64]]]:
     """
-    Decorator factory to validate coords and handle deg↔rad conversion.
+    Decorator to validate coords and handle deg↔rad conversion using angle indices.
 
     Parameters
     ----------
     ndim
-        allowed sizes for the last dimension of the input array
-    name_in
-        human-readable name for error messages
-    name_out
-        human-readable name for error messages
-    convert_input
-        if True, on degrees=True convert last two entries from deg→rad
-    convert_output
-        if True, on degrees=True convert last two entries from rad→deg
+        allowed last-dimension sizes for the input.
+    name_in, name_out
+        coordinate system names for error messages.
+    convert_input, convert_output
+        whether to convert input and/or output angles when ``degrees=True``.
+    angles_in, angles_out
+        which indices are angles for input and output, respectively.
+        May be:
+          * a single int, slice, or sequence of ints;
+          * a dict mapping last-dimension size to one of the above;
+          * or ``None`` (no angles).
+
+        Examples
+        --------
+        * spherical 3-vector (r, θ, φ): ``{3: (1, 2)}``
+        * spherical 2-vector (θ, φ): ``{2: (0, 1)}``
+        * polar 2-vector (r, θ): ``{2: (1,)}``
 
     Returns
     -------
-    decorator
-        wraps a function that assumes all inputs/outputs in radians
+    wrapper : Callable
+        function that enforces validation and optional unit conversion.
     """
 
     def decorator(fn: Callable[..., NDArray[np.float64]]):
@@ -71,18 +99,24 @@ def ensure_units(
         def wrapper(
             arr: ArrayLike, *args, degrees: bool = False, **kwargs
         ) -> NDArray[np.float64]:
-            # validate shape + dtype
-            arr_rad = validate_coordinates(
+            # always validate shape and make a safe working copy
+            arr64 = validate_coordinates(
                 arr, ndim=ndim, name_in=name_in, name_out=name_out
             )
-            # if requested, convert input angles from deg→rad
+            arr_rad = arr64.copy()  # don't mutate caller's array
+            # optional input conversion
             if convert_input and degrees:
-                arr_rad[..., -2:] = np.deg2rad(arr_rad[..., -2:])
-            # core logic (always in radians)
+                idx = _angle_idx(angles_in, arr_rad.shape[-1])
+                if idx is not None:
+                    arr_rad[..., idx] = np.deg2rad(arr_rad[..., idx])
+            # core logic (expects radians)
             out = fn(arr_rad, *args, **kwargs)
-            # if requested, convert output angles from rad→deg
+            # optional output conversion
             if convert_output and degrees:
-                out[..., -2:] = np.rad2deg(out[..., -2:])
+                idx = _angle_idx(angles_out, out.shape[-1])
+                if idx is not None:
+                    out = np.array(out, copy=True)  # avoid mutating callee's buffer
+                    out[..., idx] = np.rad2deg(out[..., idx])
             return out
 
         return wrapper
