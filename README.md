@@ -43,5 +43,5 @@ By default, angles are in **radians**. Input and output angles can be in degrees
 
 ## 📚 Function Reference
 
-- `sph2cart(r, theta, phi, degrees=False)`
-- `cart2sph(x, y, z, degrees=False)`
+- `sph2cart([r, theta, phi], degrees=False)`
+- `cart2sph([x, y, z], degrees=False)`
