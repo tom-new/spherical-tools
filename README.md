@@ -37,7 +37,7 @@ x, y, z = st.sph2cart([1, 30, 60], degrees=True)
 r, theta, phi = st.cart2sph([x, y, z], degrees=True)
 ```
 
-By deafault, angles are in **radians** but input and output angles can be in degrees by setting `degrees=True`.
+By default, angles are in **radians**. Input and output angles can be in degrees by setting `degrees=True`.
 
 ---
 
